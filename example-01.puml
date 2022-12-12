@@ -1,0 +1,134 @@
+@startuml
+
+autonumber
+
+skinparam sequence {
+	boxBorderColor grey
+	boxBackgroundColor floralwhite
+ 	ParticipantBorderColor black
+ 	ParticipantBackgroundColor lightskyblue
+	ParticipantPadding 10
+ 	ActorBorderColor black
+ 	ActorBackgroundColor lightskyblue
+}
+
+database "a"
+queue "databus" as databus #red
+box "apbizprod"
+participant "databus\nproducer" as DP
+participant "databus\nconsumer" as DC
+participant "tieringAPI" as TA
+participant "tiering\nrules" as TR
+end box
+box "custcenter"
+participant "tieringData" as TD
+end box
+participant "superGW" as SGW
+box "ABL"
+participant "CustomerRegistrationController" as Registration
+participant "WalletKYCUpdateController" as Update
+end box
+participant "opt-in\nentry\npoints" as EP #white
+
+	DC -> databus: listen to\nopt-in\ntopics
+	activate databus
+
+	EP -> TA: request from\nopt-in entry\npoints
+	activate TA
+	TA -> DP: request from\nopt-in entry\npoints
+	activate DP
+	DP -> databus: insert in databus
+	activate DP
+	activate databus
+	databus --> DP
+	deactivate databus
+	deactivate DP
+	DP --> TA
+	deactivate DP
+	TA --> EP
+	deactivate TA
+
+	Registration -> SGW: successful\nregistration\ncompleted
+	activate SGW
+	SGW -> TA: successful\nregistration\ncompleted
+	activate TA
+	TA -> DP: successful\nregistration\ncompleted
+	activate DP
+	DP -> databus: insert in databus
+	activate DP
+	activate databus
+	databus --> DP
+	deactivate databus
+	deactivate DP
+	DP --> TA
+	deactivate DP
+	TA --> SGW
+	deactivate TA
+	SGW --> Registration
+	deactivate SGW
+
+	Update -> SGW: successful\nupdate\ncompleted
+	activate SGW
+	SGW -> TA: successful\nupdate\ncompleted
+	activate TA
+	TA -> DP: successful\nupdate\ncompleted
+	activate DP
+	DP -> databus: insert in databus
+	activate DP
+	activate databus
+	databus --> DP
+	deactivate databus
+	deactivate DP
+	DP --> TA
+	deactivate DP
+	TA --> SGW
+	deactivate TA
+	SGW --> Update
+	deactivate SGW
+
+	databus -> DC: received message
+	deactivate databus
+
+	activate DC
+	DC -> TR: evaluate user\nbased on rules
+	activate TR
+
+		alt #orange if is from registration topic
+			TR -> TD: store as LITE
+			activate TD
+			TD --> TR
+			deactivate TD
+		else #white if is from kycUpdate topic
+			TR -> TD: store as Pro
+			activate TD
+			TD --> TR
+			deactivate TD
+		else #orange if is from any of go product opt-in topics
+			TR -> TD: store as premium
+			activate TD
+			TD --> TR
+			deactivate TD
+		else #white if is from premium+ subscription topic
+			TR -> TD: store as premium+
+			activate TD
+			TD --> TR
+			deactivate TD
+		end
+
+	TR --> DC
+	deactivate TR
+
+	alt #orange if the tiering is premium
+		DC -> SGW: update user profile to premium
+		activate DC
+		activate SGW
+		SGW -> Update: update user profile to premium
+		activate Update
+		Update --> SGW
+		deactivate Update
+		SGW --> DC
+		deactivate SGW
+		deactivate DC
+	end
+
+@enduml

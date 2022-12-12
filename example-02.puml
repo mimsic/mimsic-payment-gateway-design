@@ -1,0 +1,67 @@
+@startuml
+'https://plantuml.com/sequence-diagram
+
+autonumber
+
+skinparam sequence {
+	boxBorderColor grey
+	boxBackgroundColor floralwhite
+ 	ParticipantBorderColor black
+ 	ParticipantBackgroundColor lightskyblue
+	ParticipantPadding 10
+ 	ActorBorderColor black
+ 	ActorBackgroundColor lightskyblue
+}
+
+participant "application" as application
+participant "application.properties" as appProps
+participant "KmsPropertyPlaceholderConfigurer" as KmsPPC
+participant "KmsSecretCache" as KmsSC
+box "alicloud"
+participant "resource\naccess\nmamagement\n(RAM)" as ram
+participant "KMS" as KMS
+end box
+
+activate application
+application -> application: application\ninitialization
+application -> appProps: load\napplication\nproperties
+activate appProps
+appProps --> application
+deactivate appProps
+application -> KmsPPC: config\nthe properties
+activate KmsPPC
+alt #yellow property place holder has valueKms: prefix
+alt #orange property value has more than 2 parts separated by colon
+KmsPPC -> KmsSC: retrieve secret by\nsecretName = part[1]\nand\nsecretSubKey = part[2]
+activate KmsSC
+KmsSC --> KmsPPC
+deactivate KmsSC
+alt KmsSecretCache does not contain the secretSubValue
+KmsPPC -> ram: get ram credentials
+activate ram
+ram --> KmsPPC
+deactivate ram
+KmsPPC -> KMS: get secret values by\nram credentials
+activate KMS
+KMS --> KmsPPC
+deactivate KMS
+KmsPPC -> KmsPPC: throw excption and stop\napplication from loading\nwhen conncetion to RAM\nor KMS fails
+KmsPPC -> KmsPPC: throw excption and stop\napplication from loading\nwhen data cannot be\ndigested by json processor
+KmsPPC -> KmsSC: update the cache by\nsecretName,\nsecretSubKeys\nand\nSecretSubValues
+activate KmsSC
+KmsSC--> KmsPPC
+deactivate KmsSC
+end
+else property value does not have enough parts separated by colon
+KmsPPC -> KmsPPC: throw exception and stop\napplication from loading
+end
+else property place holder has valueEnc: prefix
+KmsPPC -> KmsPPC: use conventional\ndecrypting method
+else property place holder does not have Prifix
+KmsPPC -> KmsPPC: use exact values from\nproperties file
+end
+KmsPPC --> application
+deactivate KmsPPC
+
+
+@enduml

@@ -1,0 +1,66 @@
+@startuml
+'https://plantuml.com/sequence-diagram
+
+title white label payment gateway and proxy layer integration with tokenizer
+
+autonumber
+
+skinparam sequence {
+	boxBorderColor grey
+	boxBackgroundColor floralwhite
+ 	ParticipantBorderColor black
+ 	ParticipantBackgroundColor lightskyblue
+	ParticipantPadding 10
+ 	ActorBorderColor black
+ 	ActorBackgroundColor lightskyblue
+}
+
+actor "customer" as customer
+participant "merchant" as merchant
+box "boost connect (BC) system in google cloud"
+participant "BC proxy" as proxy
+participant " google\ntokenizer" as tokenizer
+database "database" as DB #red
+end box
+participant "white label\nPG" as PG
+participant "Acquirer" as acquirer
+
+customer -> merchant: make transaction
+activate merchant
+merchant -> proxy: redirect transaction\nwith BC API spec
+activate proxy
+proxy -> DB: store transaction
+activate DB
+DB --> proxy
+deactivate DB
+proxy -> PG: get merchant payment methods
+activate PG
+PG --> proxy
+deactivate PG
+proxy -> proxy: redirect to hosted payment page\nin proxy
+alt #orange if payment method is card
+proxy -> tokenizer:generate and store token
+activate tokenizer
+tokenizer -> DB: store token
+activate DB
+DB --> tokenizer
+deactivate DB
+tokenizer --> proxy
+deactivate tokenizer
+end
+proxy -> proxy: map BC API spec to white label\nAPI spec
+proxy -> PG: submit transaction
+activate PG
+PG -> acquirer: send payment to\npayment channel
+activate acquirer
+acquirer --> PG
+deactivate acquirer
+PG --> proxy
+deactivate PG
+proxy -> proxy: map white label API to BC API\nspec
+proxy --> merchant: redirect transaction\nwith BC API spec
+deactivate proxy
+merchant --> customer
+deactivate merchant
+
+@enduml

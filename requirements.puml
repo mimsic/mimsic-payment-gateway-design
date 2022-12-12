@@ -1,0 +1,10 @@
+@startmindmap
+'https://plantuml.com/mindmap-diagram
+
+title white label payment gateway and proxy layer integration requirements
+
+* <&flag> Proxy Layer
+** <&star> Mapping API Spec
+** <&star> Tokenizer
+
+@endmindmap
