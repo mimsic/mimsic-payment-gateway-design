@@ -1,0 +1,135 @@
+@startuml
+'https://plantuml.com/sequence-diagram
+
+title Boost Connect Integration
+
+autonumber
+
+skinparam sequence {
+	boxBorderColor grey
+	boxBackgroundColor floralwhite
+ 	ParticipantBorderColor black
+ 	ParticipantBackgroundColor lightskyblue
+	ParticipantPadding 10
+ 	ActorBorderColor black
+ 	ActorBackgroundColor lightskyblue
+}
+
+actor "Customer" as customer
+participant "Merchant" as merchant
+box "Boost Connect"
+participant "Scheduler" as scheduler
+participant "Payment\nGateway" as PG
+participant "Settlement\nServer" as SS
+participant "Gateway\nTokenizer" as GT
+participant "Microsoft\nDynamics 365" as MSD
+participant "SFTP server" as SFTP
+database "database" as DB #red
+end box
+box "Payment Provider"
+participant "Risk\nServer" as RS
+participant "3DS\nServer" as 3S
+participant "Payment\nServer" as PS
+participant "Universal\nTokenizer" as UT
+end box
+participant "Acquirer" as acquirer
+
+customer -> merchant: Make payment
+activate merchant
+merchant -> PG: Request payment
+activate PG
+PG --> merchant
+deactivate PG
+merchant --> customer: Redirect to Payment Page
+deactivate merchant
+
+customer -> PG: Choose payment method\n and submit the details
+activate PG
+PG -> DB: Store payment
+activate DB
+DB --> PG
+deactivate DB
+PG -> RS: Evaluate payment risk
+activate RS
+RS --> PG: Return the evaluation result
+deactivate RS
+alt #orange If the payment risk is high
+PG -> 3S: Check for OTP
+deactivate PG
+activate 3S
+3S -> customer: Redirect to OTP page
+customer --> 3S: Enter OTP
+3S --> PG: Return OTP check result
+deactivate 3S
+activate PG
+alt #yellow If OTP check is failed
+PG --> customer: Reject the payment
+deactivate PG
+end
+end
+PG -> PS: Proceed with payment
+activate PG
+activate PS
+PS --> PG
+deactivate PS
+alt #orange If user selected to store card
+PG -> GT: Tokenize payment data
+activate GT
+GT -> DB: Store the data
+activate DB
+DB --> GT
+deactivate DB
+GT --> PG
+deactivate GT
+alt #yellow If merchant has subscribed with universal token
+PG -> UT: Generate universal token
+activate UT
+UT --> PG
+deactivate UT
+end
+end
+PG -> DB: Update the payment status
+activate DB
+DB --> PG
+deactivate DB
+PG --> customer: Display the payment status
+PG -> merchant: update the payment status to merchant
+activate merchant
+merchant --> PG
+deactivate merchant
+deactivate PG
+acquirer -> SFTP: Drop the settlement file
+activate acquirer
+activate SFTP
+SFTP --> acquirer
+deactivate SFTP
+deactivate acquirer
+scheduler -> SS: Perform settlement
+activate scheduler
+activate SS
+SS -> SFTP: pick up the settlement file
+activate SFTP
+SFTP --> SS
+deactivate SFTP
+SS -> DB: Store the data
+activate DB
+DB --> SS
+deactivate DB
+SS -> MSD: Send to finance system
+activate MSD
+MSD --> SS
+deactivate MSD
+SS --> scheduler
+deactivate SS
+deactivate scheduler
+
+
+
+
+
+
+
+
+
+
+@enduml
